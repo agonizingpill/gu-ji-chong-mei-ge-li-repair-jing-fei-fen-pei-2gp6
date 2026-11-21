@@ -40,6 +40,10 @@ class GrantInput(BaseModel):
     budget_cents:int=Field(gt=0,le=1000000000)
 class FundInput(BaseModel):
     grant_id:int
+class BatchPreviewInput(BaseModel):
+    grant_id:int
+class BatchConfirmInput(BaseModel):
+    note:str=Field(default='',max_length=200)
 class SettleInput(BaseModel):
     actual_cents:int=Field(gt=0)
 class HandoverInput(BaseModel):

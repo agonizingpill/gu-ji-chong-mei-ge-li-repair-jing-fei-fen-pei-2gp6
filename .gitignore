@@ -32,3 +32,6 @@ target/
 *.o
 *.obj
 .DS_Store
+
+# 本地验收证据与脚本，不进仓库
+test-artifacts/

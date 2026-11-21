@@ -1,5 +1,5 @@
 from datetime import datetime,timezone
-from sqlalchemy import Integer,String,Float,ForeignKey,UniqueConstraint,CheckConstraint,JSON,DateTime,Boolean
+from sqlalchemy import Integer,String,Float,ForeignKey,UniqueConstraint,CheckConstraint,JSON,DateTime,Boolean,Index
 from sqlalchemy.orm import Mapped,mapped_column
 from .database import Base
 from .constants import FolioState,PlanState
@@ -82,12 +82,36 @@ class Grant(Base):
     spent_cents:Mapped[int]=mapped_column(Integer,default=0)
 class Encumbrance(Base):
     __tablename__='encumbrances'
+    __table_args__=(Index('ix_encumbrance_held_treatment','treatment_id',unique=True,postgresql_where=("status = 'held'"),sqlite_where=("status = 'held'")),)
     id:Mapped[int]=mapped_column(primary_key=True)
     treatment_id:Mapped[int]=mapped_column(ForeignKey('treatments.id'))
     grant_id:Mapped[int]=mapped_column(ForeignKey('grants.id'))
     amount_cents:Mapped[int]=mapped_column(Integer)
     actual_cents:Mapped[int|None]=mapped_column(Integer,nullable=True)
     status:Mapped[str]=mapped_column(String(20),default='held')
+class GrantBatch(Base):
+    __tablename__='grant_batches'
+    id:Mapped[int]=mapped_column(primary_key=True)
+    grant_id:Mapped[int]=mapped_column(ForeignKey('grants.id'))
+    status:Mapped[str]=mapped_column(String(20),default='preview')
+    fingerprint:Mapped[str]=mapped_column(String(64))
+    available_cents:Mapped[int]=mapped_column(Integer)
+    funded_cents:Mapped[int]=mapped_column(Integer,default=0)
+    balance_cents:Mapped[int|None]=mapped_column(Integer,nullable=True)
+    note:Mapped[str]=mapped_column(String(200),default='')
+    created_at:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=now)
+    confirmed_at:Mapped[datetime|None]=mapped_column(DateTime(timezone=True),nullable=True)
+class GrantBatchItem(Base):
+    __tablename__='grant_batch_items'
+    __table_args__=(UniqueConstraint('batch_id','treatment_id'),)
+    id:Mapped[int]=mapped_column(primary_key=True)
+    batch_id:Mapped[int]=mapped_column(ForeignKey('grant_batches.id'))
+    treatment_id:Mapped[int]=mapped_column(ForeignKey('treatments.id'))
+    rank_no:Mapped[int]=mapped_column(Integer)
+    risk_level:Mapped[str]=mapped_column(String(20))
+    estimated_cents:Mapped[int]=mapped_column(Integer)
+    decision:Mapped[str]=mapped_column(String(20),default='candidate')
+    reason:Mapped[str]=mapped_column(String(200),default='')
 class Handover(Base):
     __tablename__='handovers'
     id:Mapped[int]=mapped_column(primary_key=True)

@@ -6,7 +6,7 @@ from .models import *
 from .schemas import *
 from .auth import current,editor,supervisor,issue,password_hash
 from .common import dump
-from . import catalog_service as catalog,isolation_service as isolation,risk_service as risk,treatment_service as treatment,grant_service as grant,handover_service as handovers
+from . import catalog_service as catalog,isolation_service as isolation,risk_service as risk,treatment_service as treatment,grant_service as grant,batch_service as batch,handover_service as handovers
 router=APIRouter()
 @router.post('/auth/login')
 def login(data:Login,db=Depends(session)):
@@ -15,7 +15,7 @@ def login(data:Login,db=Depends(session)):
     return {'token':issue(user),'username':user.username,'role':user.role}
 @router.get('/workspace')
 def workspace(db=Depends(session),user=Depends(current)):
-    models=[Accession,Observation,Cabinet,Isolation,RiskAssessment,Treatment,Step,Grant,Encumbrance,Handover]
+    models=[Accession,Observation,Cabinet,Isolation,RiskAssessment,Treatment,Step,Grant,Encumbrance,GrantBatch,GrantBatchItem,Handover]
     return {m.__tablename__:[dump(v) for v in db.scalars(select(m).order_by(m.id))] for m in models}
 @router.get('/audit')
 def audits(db=Depends(session),user=Depends(supervisor)):return [dump(v) for v in db.scalars(select(Audit).order_by(Audit.id.desc()).limit(100))]
@@ -43,6 +43,19 @@ def step(id:int,data:EvidenceInput,db=Depends(session),user=Depends(editor)):ret
 def create_grant(data:GrantInput,db=Depends(session),user=Depends(supervisor)):return grant.create_grant(db,data,user)
 @router.post('/treatments/{id}/fund')
 def fund(id:int,data:FundInput,db=Depends(session),user=Depends(supervisor)):return grant.fund(db,id,data,user)
+@router.post('/grant-batches')
+def batch_preview(data:BatchPreviewInput,db=Depends(session),user=Depends(supervisor)):
+    row=batch.build_preview(db,data,user)
+    return batch.serialize_batch(db,row)
+@router.post('/grant-batches/{id}/confirm')
+def batch_confirm(id:int,data:BatchConfirmInput,db=Depends(session),user=Depends(supervisor)):
+    payload,idempotent=batch.confirm_batch(db,id,data,user)
+    payload['idempotent_replay']=idempotent
+    return payload
+@router.get('/grant-batches')
+def batch_list(db=Depends(session),user=Depends(supervisor)):
+    rows=db.scalars(select(GrantBatch).order_by(GrantBatch.id.desc())).all()
+    return [batch.serialize_batch(db,row) for row in rows]
 @router.post('/treatments/{id}/settle')
 def settle(id:int,data:SettleInput,db=Depends(session),user=Depends(supervisor)):return grant.settle(db,id,data,user)
 @router.post('/handovers')
